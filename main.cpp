@@ -622,6 +622,7 @@ int main(int argc, char *argv[])
         detect_utils::test_segments_intersect();
         detect_utils::test_calc_segment_angle();
         detect_utils::test_calc_rotated_point();
+        detect_utils::test_calc_perpendicular_line();
         res = 0;
     }
     else

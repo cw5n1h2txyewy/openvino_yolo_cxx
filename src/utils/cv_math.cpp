@@ -564,4 +564,250 @@ namespace detect_utils
         std::cout << "===================== test_calc_rotated_point =====================" << std::endl
                   << std::endl;
     }
+
+    /**
+     * @brief 计算一条线段的垂线
+     *        垂线的起点为线段上选定的点（起点、终点或中点），垂线方向为线段的垂直方向（左侧或右侧），长度可指定
+     * @param segment_start 线段的起点
+     * @param segment_end 线段的终点
+     * @param base_point_mode 垂线起点的选取方式：StartPoint（线段起点）、EndPoint（线段终点）或 MidPoint（线段中点）
+     * @param direction 垂线方向：Left（左侧，对应垂直向量 (-dy, dx)）或 Right（右侧，对应垂直向量 (dy, -dx)）
+     * @param length 垂线长度，默认为 1；传入负值时等价于沿相反方向延伸
+     * @return 返回垂线的两个端点（std::pair），first 为垂线起点（即线段上选定的点），second 为垂线终点；
+     *         线段退化为一个点时，垂线方向无定义，此时返回的两个端点均为该退化点
+     */
+    std::pair<cv::Point2d, cv::Point2d> calc_perpendicular_line(
+        const cv::Point2d &segment_start,
+        const cv::Point2d &segment_end,
+        const PerpendicularBasePoint base_point_mode,
+        const PerpendicularDirection direction,
+        const double length)
+    {
+        cv::Point2d base_point = segment_start;
+        if (base_point_mode == PerpendicularBasePoint::EndPoint)
+        {
+            base_point = segment_end;
+        }
+        else if (base_point_mode == PerpendicularBasePoint::MidPoint)
+        {
+            base_point = cv::Point2d(
+                (segment_start.x + segment_end.x) * 0.5,
+                (segment_start.y + segment_end.y) * 0.5);
+        }
+
+        const double dx = segment_end.x - segment_start.x;
+        const double dy = segment_end.y - segment_start.y;
+
+        const double segment_length_squared = dx * dx + dy * dy;
+
+        // 线段退化为一个点，垂线方向无定义，返回长度为 0 的退化线段
+        if (segment_length_squared < eps)
+        {
+            return {base_point, base_point};
+        }
+
+        // 单位化线段方向向量，保证垂线长度准确
+        const double segment_length = std::sqrt(segment_length_squared);
+        const double unit_dx = dx / segment_length;
+        const double unit_dy = dy / segment_length;
+
+        // 与 cross 函数“左侧为正”的约定保持一致：
+        // Left  的垂线单位向量为 (-unit_dy, unit_dx)，此时 cross(segment_start, segment_end, 垂线终点) > 0
+        // Right 的垂线单位向量为 (unit_dy, -unit_dx)，此时 cross(segment_start, segment_end, 垂线终点) < 0
+        double perpendicular_dx = -unit_dy;
+        double perpendicular_dy = unit_dx;
+
+        if (direction == PerpendicularDirection::Right)
+        {
+            perpendicular_dx = -perpendicular_dx;
+            perpendicular_dy = -perpendicular_dy;
+        }
+
+        double offset_x = perpendicular_dx * length;
+        double offset_y = perpendicular_dy * length;
+
+        // 清除 0、90 度等常见角度产生的极小浮点误差，同时避免输出 -0.0
+        if (std::abs(offset_x) < eps)
+        {
+            offset_x = 0.0;
+        }
+        if (std::abs(offset_y) < eps)
+        {
+            offset_y = 0.0;
+        }
+
+        return {
+            base_point,
+            cv::Point2d(base_point.x + offset_x, base_point.y + offset_y)};
+    }
+
+    void test_calc_perpendicular_line()
+    {
+        std::cout << "===================== test_calc_perpendicular_line =====================" << std::endl;
+
+        const auto is_near = [](const cv::Point2d &actual, const cv::Point2d &expected)
+        {
+            return calc_point_distance(actual, expected) < 1e-9;
+        };
+
+        const auto print_result = [](const std::string &name, const std::pair<cv::Point2d, cv::Point2d> &result)
+        {
+            std::cout << name << ": (" << result.first.x << ", " << result.first.y << ") -> ("
+                      << result.second.x << ", " << result.second.y << ")" << std::endl;
+        };
+
+        // ---------- 数值验证：水平线段（沿 +x 方向），左侧垂线方向为 (0, 1)，右侧为 (0, -1) ----------
+        const cv::Point2d a(0.0, 0.0);
+        const cv::Point2d b(1.0, 0.0);
+
+        const auto default_perpendicular = calc_perpendicular_line(a, b);
+        print_result("horizontal default (StartPoint, Left, length=1)", default_perpendicular);
+        // horizontal default (StartPoint, Left, length=1): (0, 0) -> (0, 1)
+        CV_Assert(is_near(default_perpendicular.first, a));
+        CV_Assert(is_near(default_perpendicular.second, cv::Point2d(0.0, 1.0)));
+
+        const auto start_left = calc_perpendicular_line(a, b, PerpendicularBasePoint::StartPoint, PerpendicularDirection::Left, 1.0);
+        print_result("horizontal StartPoint, Left, length=1", start_left);
+        // horizontal StartPoint, Left, length=1: (0, 0) -> (0, 1)
+        CV_Assert(is_near(start_left.second, cv::Point2d(0.0, 1.0)));
+
+        const auto start_right = calc_perpendicular_line(a, b, PerpendicularBasePoint::StartPoint, PerpendicularDirection::Right, 1.0);
+        print_result("horizontal StartPoint, Right, length=1", start_right);
+        // horizontal StartPoint, Right, length=1: (0, 0) -> (0, -1)
+        CV_Assert(is_near(start_right.second, cv::Point2d(0.0, -1.0)));
+
+        const auto end_left = calc_perpendicular_line(a, b, PerpendicularBasePoint::EndPoint, PerpendicularDirection::Left, 1.0);
+        print_result("horizontal EndPoint, Left, length=1", end_left);
+        // horizontal EndPoint, Left, length=1: (1, 0) -> (1, 1)
+        CV_Assert(is_near(end_left.second, cv::Point2d(1.0, 1.0)));
+
+        const auto end_right = calc_perpendicular_line(a, b, PerpendicularBasePoint::EndPoint, PerpendicularDirection::Right, 1.0);
+        print_result("horizontal EndPoint, Right, length=1", end_right);
+        // horizontal EndPoint, Right, length=1: (1, 0) -> (1, -1)
+        CV_Assert(is_near(end_right.second, cv::Point2d(1.0, -1.0)));
+
+        const auto mid_left = calc_perpendicular_line(a, b, PerpendicularBasePoint::MidPoint, PerpendicularDirection::Left, 1.0);
+        print_result("horizontal MidPoint, Left, length=1", mid_left);
+        // horizontal MidPoint, Left, length=1: (0.5, 0) -> (0.5, 1)
+        CV_Assert(is_near(mid_left.first, cv::Point2d(0.5, 0.0)));
+        CV_Assert(is_near(mid_left.second, cv::Point2d(0.5, 1.0)));
+
+        const auto mid_right = calc_perpendicular_line(a, b, PerpendicularBasePoint::MidPoint, PerpendicularDirection::Right, 1.0);
+        print_result("horizontal MidPoint, Right, length=1", mid_right);
+        // horizontal MidPoint, Right, length=1: (0.5, 0) -> (0.5, -1)
+        CV_Assert(is_near(mid_right.first, cv::Point2d(0.5, 0.0)));
+        CV_Assert(is_near(mid_right.second, cv::Point2d(0.5, -1.0)));
+
+        const auto start_left_length_2 = calc_perpendicular_line(a, b, PerpendicularBasePoint::StartPoint, PerpendicularDirection::Left, 2.0);
+        print_result("horizontal StartPoint, Left, length=2", start_left_length_2);
+        // horizontal StartPoint, Left, length=2: (0, 0) -> (0, 2)
+        CV_Assert(is_near(start_left_length_2.second, cv::Point2d(0.0, 2.0)));
+
+        // Left/Right 与 cross 函数“左侧为正”的约定一致
+        CV_Assert(cross(a, b, start_left.second) > 0.0);
+        CV_Assert(cross(a, b, start_right.second) < 0.0);
+
+        // ---------- 数值验证：45 度斜线段 ----------
+        const cv::Point2d c(0.0, 0.0);
+        const cv::Point2d d(1.0, 1.0);
+
+        const auto diagonal_left = calc_perpendicular_line(c, d, PerpendicularBasePoint::StartPoint, PerpendicularDirection::Left, std::sqrt(2.0));
+        print_result("diagonal StartPoint, Left, length=sqrt(2)", diagonal_left);
+        // diagonal StartPoint, Left, length=sqrt(2): (0, 0) -> (-1, 1)
+        CV_Assert(is_near(diagonal_left.second, cv::Point2d(-1.0, 1.0)));
+
+        const auto diagonal_right = calc_perpendicular_line(c, d, PerpendicularBasePoint::EndPoint, PerpendicularDirection::Right, std::sqrt(2.0));
+        print_result("diagonal EndPoint, Right, length=sqrt(2)", diagonal_right);
+        // diagonal EndPoint, Right, length=sqrt(2): (1, 1) -> (2, 0)
+        CV_Assert(is_near(diagonal_right.second, cv::Point2d(2.0, 0.0)));
+
+        const auto diagonal_mid_left = calc_perpendicular_line(c, d, PerpendicularBasePoint::MidPoint, PerpendicularDirection::Left, std::sqrt(2.0));
+        print_result("diagonal MidPoint, Left, length=sqrt(2)", diagonal_mid_left);
+        // diagonal MidPoint, Left, length=sqrt(2): (0.5, 0.5) -> (-0.5, 1.5)
+        CV_Assert(is_near(diagonal_mid_left.first, cv::Point2d(0.5, 0.5)));
+        CV_Assert(is_near(diagonal_mid_left.second, cv::Point2d(-0.5, 1.5)));
+
+        // 垂直性：垂线向量与线段向量的点积为 0
+        const double dot_product = (d.x - c.x) * (diagonal_left.second.x - diagonal_left.first.x) +
+                                   (d.y - c.y) * (diagonal_left.second.y - diagonal_left.first.y);
+        CV_Assert(std::abs(dot_product) < 1e-9);
+
+        // 长度正确性
+        CV_Assert(std::abs(calc_point_distance(diagonal_left.first, diagonal_left.second) - std::sqrt(2.0)) < 1e-9);
+
+        // ---------- 数值验证：负长度等价于方向取反 ----------
+        const auto negative_length = calc_perpendicular_line(a, b, PerpendicularBasePoint::StartPoint, PerpendicularDirection::Left, -1.0);
+        print_result("horizontal StartPoint, Left, length=-1", negative_length);
+        // horizontal StartPoint, Left, length=-1: (0, 0) -> (0, -1)
+        CV_Assert(is_near(negative_length.second, cv::Point2d(0.0, -1.0)));
+
+        // ---------- 数值验证：退化线段（两个端点重合），垂线方向无定义 ----------
+        const auto degenerate = calc_perpendicular_line(c, c, PerpendicularBasePoint::EndPoint, PerpendicularDirection::Right, 5.0);
+        print_result("degenerate EndPoint, Right, length=5", degenerate);
+        // degenerate EndPoint, Right, length=5: (0, 0) -> (0, 0)
+        CV_Assert(is_near(degenerate.first, c) && is_near(degenerate.second, c));
+
+        std::cout << "Numeric checks passed." << std::endl;
+
+        // ---------- 可视化：画出 6 种组合（起点/中点/终点 x 左侧/右侧） ----------
+        cv::Mat test_img(700, 1200, CV_8UC3, cv::Scalar(30, 30, 30));
+        const double draw_length = 150.0;
+
+        const auto draw_perpendicular_examples = [&test_img](
+                                                     const cv::Point2d &segment_start,
+                                                     const cv::Point2d &segment_end,
+                                                     const double length,
+                                                     const std::string &title)
+        {
+            const std::vector<std::pair<PerpendicularBasePoint, PerpendicularDirection>> modes = {
+                {PerpendicularBasePoint::StartPoint, PerpendicularDirection::Left},
+                {PerpendicularBasePoint::StartPoint, PerpendicularDirection::Right},
+                {PerpendicularBasePoint::MidPoint, PerpendicularDirection::Left},
+                {PerpendicularBasePoint::MidPoint, PerpendicularDirection::Right},
+                {PerpendicularBasePoint::EndPoint, PerpendicularDirection::Left},
+                {PerpendicularBasePoint::EndPoint, PerpendicularDirection::Right}};
+            const std::vector<cv::Scalar> colors = {
+                cv::Scalar(0, 215, 255),
+                cv::Scalar(0, 255, 0),
+                cv::Scalar(255, 180, 0),
+                cv::Scalar(255, 0, 255),
+                cv::Scalar(0, 165, 255),
+                cv::Scalar(180, 105, 255)};
+            const std::vector<std::string> mode_names = {"start+Left", "start+Right", "mid+Left", "mid+Right", "end+Left", "end+Right"};
+
+            // 原线段及其起点、中点、终点
+            cv::line(test_img, segment_start, segment_end, cv::Scalar(220, 220, 220), 3, cv::LINE_AA);
+            cv::circle(test_img, segment_start, 6, cv::Scalar(0, 0, 255), cv::FILLED, cv::LINE_AA);
+            cv::putText(test_img, "start", segment_start + cv::Point2d(-70, 20), cv::FONT_HERSHEY_SIMPLEX, 0.55, cv::Scalar(0, 0, 255), 1, cv::LINE_AA);
+            const cv::Point2d mid_point(
+                (segment_start.x + segment_end.x) * 0.5,
+                (segment_start.y + segment_end.y) * 0.5);
+            cv::circle(test_img, mid_point, 6, cv::Scalar(0, 255, 255), cv::FILLED, cv::LINE_AA);
+            cv::putText(test_img, "mid", mid_point + cv::Point2d(-20, -12), cv::FONT_HERSHEY_SIMPLEX, 0.55, cv::Scalar(0, 255, 255), 1, cv::LINE_AA);
+            cv::circle(test_img, segment_end, 6, cv::Scalar(255, 0, 0), cv::FILLED, cv::LINE_AA);
+            cv::putText(test_img, "end", segment_end + cv::Point2d(10, 20), cv::FONT_HERSHEY_SIMPLEX, 0.55, cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
+
+            for (size_t i = 0; i < modes.size(); ++i)
+            {
+                const auto perpendicular = calc_perpendicular_line(segment_start, segment_end, modes[i].first, modes[i].second, length);
+
+                cv::arrowedLine(test_img, perpendicular.first, perpendicular.second, colors[i], 2, cv::LINE_AA, 0, 0.08);
+                cv::putText(test_img, mode_names[i], perpendicular.second + cv::Point2d(8, -8), cv::FONT_HERSHEY_SIMPLEX, 0.55, colors[i], 1, cv::LINE_AA);
+            }
+
+            cv::putText(test_img, title, cv::Point(segment_start.x - 100, 55), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 255, 255), 2, cv::LINE_AA);
+        };
+
+        draw_perpendicular_examples(cv::Point2d(120.0, 380.0), cv::Point2d(480.0, 380.0), draw_length, "Horizontal segment");
+        draw_perpendicular_examples(cv::Point2d(680.0, 230.0), cv::Point2d(1020.0, 570.0), draw_length * 0.87, "Diagonal segment");
+
+        cv::imwrite("test_calc_perpendicular_line.jpg", test_img);
+        std::cout << "Saved test_calc_perpendicular_line.jpg" << std::endl;
+
+        cv::imshow("test_calc_perpendicular_line", test_img);
+        cv::waitKey(0);
+
+        std::cout << "===================== test_calc_perpendicular_line =====================" << std::endl
+                  << std::endl;
+    }
 }

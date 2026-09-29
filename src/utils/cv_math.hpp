@@ -3,6 +3,7 @@
 #pragma once
 
 #include <opencv2/opencv.hpp>
+#include <utility>
 
 namespace detect_utils
 {
@@ -112,6 +113,45 @@ namespace detect_utils
         CoordSystem coord_system = CoordSystem::OpenCV);
 
     void test_calc_rotated_point();
+
+    enum class PerpendicularBasePoint
+    {
+        StartPoint, // 垂线起点取线段起点
+        EndPoint,   // 垂线起点取线段终点
+        MidPoint    // 垂线起点取线段中点
+    };
+
+    enum class PerpendicularDirection
+    {
+        // 有向线段（segment_start -> segment_end）的左侧（数学约定，与 cross 函数"左侧为正"保持一致）：
+        // 垂线方向向量为 (-dy, dx)，即 cross(segment_start, segment_end, 垂线终点) > 0；
+        // 在 Math 坐标系（y 轴向上）中为线段行进方向的左侧。
+        Left,
+        // 有向线段（segment_start -> segment_end）的右侧：垂线方向向量为 (dy, -dx)，
+        // 即 cross(segment_start, segment_end, 垂线终点) < 0；
+        // 在 Math 坐标系（y 轴向上）中为线段行进方向的右侧。
+        Right
+    };
+
+    /**
+     * @brief 计算一条线段的垂线
+     *        垂线的起点为线段上选定的点（起点、终点或中点），垂线方向为线段的垂直方向（左侧或右侧），长度可指定
+     * @param segment_start 线段的起点
+     * @param segment_end 线段的终点
+     * @param base_point_mode 垂线起点的选取方式：StartPoint（线段起点）、EndPoint（线段终点）或 MidPoint（线段中点）
+     * @param direction 垂线方向：Left（左侧，对应垂直向量 (-dy, dx)）或 Right（右侧，对应垂直向量 (dy, -dx)）
+     * @param length 垂线长度，默认为 1；传入负数时等价于方向取反，长度为 |length|
+     * @return 返回垂线的两个端点（std::pair），first 为垂线起点（即线段上选定的点），second 为垂线终点；
+     *         线段退化为一个点时，垂线方向无定义，此时返回的两个端点均为该退化点
+     */
+    std::pair<cv::Point2d, cv::Point2d> calc_perpendicular_line(
+        const cv::Point2d &segment_start,
+        const cv::Point2d &segment_end,
+        const PerpendicularBasePoint base_point_mode = PerpendicularBasePoint::StartPoint,
+        const PerpendicularDirection direction = PerpendicularDirection::Left,
+        const double length = 1.0);
+
+    void test_calc_perpendicular_line();
 }
 
 #endif // CV_MATH_HPP
