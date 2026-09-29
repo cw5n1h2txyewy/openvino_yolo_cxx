@@ -11,13 +11,13 @@ namespace detect_utils
 
     /**
      * @brief 计算两个二维点之间的距离
-     * @param p1 第一个点
-     * @param p2 第二个点
+     * @param point1 第一个点
+     * @param point2 第二个点
      * @return 返回两点之间的距离（double类型）
      */
     double calc_point_distance(
-        const cv::Point2d &p1,
-        const cv::Point2d &p2);
+        const cv::Point2d &point1,
+        const cv::Point2d &point2);
 
     void test_calc_point_distance();
 
@@ -28,53 +28,60 @@ namespace detect_utils
     };
 
     /**
-     * @brief 计算点到线段的距离
-     * @param point 要计算距离的点
+     * @brief 计算线段（segment_start -> segment_end）与点 point 之间的距离
      * @param segment_start 线段的起点
      * @param segment_end 线段的终点
+     * @param point 要计算距离的点
      * @param projection_mode 投影模式，有 InfiniteLine 和 ClampToSegment 两种
-     * @return 返回点到线段的距离（double类型）
+     * @return 返回线段与点之间的距离（double类型）
      */
-    double calc_point_to_segment_distance(
-        const cv::Point2d &point,
+    double calc_segment_point_distance(
         const cv::Point2d &segment_start,
         const cv::Point2d &segment_end,
+        const cv::Point2d &point,
         const ProjectionMode projection_mode = ProjectionMode::InfiniteLine);
 
-    void test_calc_point_to_segment_distance();
+    void test_calc_segment_point_distance();
 
     /**
-     * @brief 这个函数计算的是由三个二维点 a、b、c 构成的两个向量 AB 和 AC 的二维叉乘（Cross Product）结果（即叉积在Z轴方向的标量值）。
-     * @param a 第一个点
-     * @param b 第二个点
-     * @param c 第三个点
+     * @brief 计算二维叉乘（Cross Product）在 Z 轴方向的标量值，等价于向量 (segment_end - segment_start) x (point - segment_start)
+     *        结果 > 0 表示 point 在有向线段（segment_start -> segment_end）的左侧，< 0 表示在右侧，= 0 表示三点共线
+     * @param segment_start 有向线段的起点
+     * @param segment_end 有向线段的终点
+     * @param point 参与叉乘的点
      * @return 返回叉积在Z轴方向的标量值（double类型）
      */
-    double cross(const cv::Point2d &a, const cv::Point2d &b, const cv::Point2d &c);
+    double cross(
+        const cv::Point2d &segment_start,
+        const cv::Point2d &segment_end,
+        const cv::Point2d &point);
 
     /**
-     * @brief 判断点 p 是否严格位于由点 ab 上
-     * @param a 线段的起点
-     * @param b 线段的终点
-     * @param p 要判断的点
-     * @return 返回点 p 是否在线段 ab 上（bool类型）
+     * @brief 判断点 point 是否位于线段（segment_start -> segment_end）上（含端点，容差 eps）
+     * @param segment_start 线段的起点
+     * @param segment_end 线段的终点
+     * @param point 要判断的点
+     * @return 返回点 point 是否在线段上（bool类型）
      */
-    bool on_segment(const cv::Point2d &a, const cv::Point2d &b, const cv::Point2d &p);
+    bool on_segment(
+        const cv::Point2d &segment_start,
+        const cv::Point2d &segment_end,
+        const cv::Point2d &point);
 
     /**
      * @brief 判断两条线段是否相交
      *        核心思想是：如果两条线段相交，那么其中一条线段的两个端点，必然分布在另一条线段所在直线的两侧。
-     * @param p1 线段1的起点
-     * @param p2 线段1的终点
-     * @param q1 线段2的起点
-     * @param q2 线段2的终点
+     * @param segment1_start 线段1的起点
+     * @param segment1_end 线段1的终点
+     * @param segment2_start 线段2的起点
+     * @param segment2_end 线段2的终点
      * @return 返回两条线段是否相交（bool类型）
      */
     bool segments_intersect(
-        const cv::Point2d &p1,
-        const cv::Point2d &p2,
-        const cv::Point2d &q1,
-        const cv::Point2d &q2);
+        const cv::Point2d &segment1_start,
+        const cv::Point2d &segment1_end,
+        const cv::Point2d &segment2_start,
+        const cv::Point2d &segment2_end);
 
     void test_segments_intersect();
 
@@ -99,18 +106,18 @@ namespace detect_utils
     void test_calc_segment_angle();
 
     /**
-     * @brief 计算目标点绕原点旋转后的新坐标
-     * @param origin_point 旋转中心
-     * @param target_point 旋转前的目标点
+     * @brief 计算点 point 绕旋转中心 rotation_center 旋转后的新坐标
+     * @param rotation_center 旋转中心
+     * @param point 旋转前的点
      * @param rotation_angle 旋转角度（度）；正角度在 OpenCV 坐标系中顺时针旋转，在 Math 坐标系中逆时针旋转
      * @param coord_system 坐标系类型（OpenCV或Math）
-     * @return 返回旋转后的目标点坐标
+     * @return 返回旋转后的点坐标
      */
     cv::Point2d calc_rotated_point(
-        const cv::Point2d &origin_point,
-        const cv::Point2d &target_point,
-        double rotation_angle,
-        CoordSystem coord_system = CoordSystem::OpenCV);
+        const cv::Point2d &rotation_center,
+        const cv::Point2d &point,
+        const double rotation_angle,
+        const CoordSystem coord_system = CoordSystem::OpenCV);
 
     void test_calc_rotated_point();
 

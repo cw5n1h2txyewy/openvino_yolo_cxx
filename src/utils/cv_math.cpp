@@ -9,16 +9,16 @@ namespace detect_utils
 
     /**
      * @brief 计算两个二维点之间的距离
-     * @param p1 第一个点
-     * @param p2 第二个点
+     * @param point1 第一个点
+     * @param point2 第二个点
      * @return 返回两点之间的距离（double类型）
      */
     double calc_point_distance(
-        const cv::Point2d &p1,
-        const cv::Point2d &p2)
+        const cv::Point2d &point1,
+        const cv::Point2d &point2)
     {
-        const double dx = p2.x - p1.x;
-        const double dy = p2.y - p1.y;
+        const double dx = point2.x - point1.x;
+        const double dy = point2.y - point1.y;
 
         const double dist = std::hypot(dx, dy);
 
@@ -57,17 +57,17 @@ namespace detect_utils
     }
 
     /**
-     * @brief 计算点到线段的距离
-     * @param point 要计算距离的点
+     * @brief 计算线段（segment_start -> segment_end）与点 point 之间的距离
      * @param segment_start 线段的起点
      * @param segment_end 线段的终点
+     * @param point 要计算距离的点
      * @param projection_mode 投影模式，有 InfiniteLine 和 ClampToSegment 两种
-     * @return 返回点到线段的距离（double类型）
+     * @return 返回线段与点之间的距离（double类型）
      */
-    double calc_point_to_segment_distance(
-        const cv::Point2d &point,
+    double calc_segment_point_distance(
         const cv::Point2d &segment_start,
         const cv::Point2d &segment_end,
+        const cv::Point2d &point,
         const ProjectionMode projection_mode)
     {
         const double vx = segment_end.x - segment_start.x;
@@ -105,16 +105,16 @@ namespace detect_utils
         return distance < eps ? 0.0 : distance;
     }
 
-    void test_calc_point_to_segment_distance()
+    void test_calc_segment_point_distance()
     {
-        std::cout << "===================== test_calc_point_to_segment_distance =====================" << std::endl;
+        std::cout << "===================== test_calc_segment_point_distance =====================" << std::endl;
         cv::Point2d point(0.0, 0.0);
         cv::Point2d segment_start(0.0, 0.0);
         cv::Point2d segment_end(0.0, 0.0);
-        double d = calc_point_to_segment_distance(point, segment_start, segment_end);
+        double d = calc_segment_point_distance(segment_start, segment_end, point);
         std::cout << "point(" << point.x << ", " << point.y << ") to segment_start(" << segment_start.x << ", " << segment_start.y << ") and segment_end(" << segment_end.x << ", " << segment_end.y << ")"
                   << " distance: " << d << " mode: InfiniteLine" << std::endl;
-        d = calc_point_to_segment_distance(point, segment_start, segment_end, ProjectionMode::ClampToSegment);
+        d = calc_segment_point_distance(segment_start, segment_end, point, ProjectionMode::ClampToSegment);
         std::cout << "point(" << point.x << ", " << point.y << ") to segment_start(" << segment_start.x << ", " << segment_start.y << ") and segment_end(" << segment_end.x << ", " << segment_end.y << ")"
                   << " distance: " << d << " mode: ClampToSegment" << std::endl;
         // point(0, 0) to segment_start(0, 0) and segment_end(0, 0) distance: 0 mode: InfiniteLine
@@ -123,10 +123,10 @@ namespace detect_utils
         point = cv::Point2d(0.0, 2.0);
         segment_start = cv::Point2d(0.0, 0.0);
         segment_end = cv::Point2d(1.0, 0.0);
-        d = calc_point_to_segment_distance(point, segment_start, segment_end);
+        d = calc_segment_point_distance(segment_start, segment_end, point);
         std::cout << "point(" << point.x << ", " << point.y << ") to segment_start(" << segment_start.x << ", " << segment_start.y << ") and segment_end(" << segment_end.x << ", " << segment_end.y << ")"
                   << " distance: " << d << " mode: InfiniteLine" << std::endl;
-        d = calc_point_to_segment_distance(point, segment_start, segment_end, ProjectionMode::ClampToSegment);
+        d = calc_segment_point_distance(segment_start, segment_end, point, ProjectionMode::ClampToSegment);
         std::cout << "point(" << point.x << ", " << point.y << ") to segment_start(" << segment_start.x << ", " << segment_start.y << ") and segment_end(" << segment_end.x << ", " << segment_end.y << ")"
                   << " distance: " << d << " mode: ClampToSegment" << std::endl;
         // point(0, 2) to segment_start(0, 0) and segment_end(1, 0) distance: 2 mode: InfiniteLine
@@ -135,77 +135,84 @@ namespace detect_utils
         point = cv::Point2d(0.0, 2.0);
         segment_start = cv::Point2d(1.0, 0.0);
         segment_end = cv::Point2d(2.0, 0.0);
-        d = calc_point_to_segment_distance(point, segment_start, segment_end);
+        d = calc_segment_point_distance(segment_start, segment_end, point);
         std::cout << "point(" << point.x << ", " << point.y << ") to segment_start(" << segment_start.x << ", " << segment_start.y << ") and segment_end(" << segment_end.x << ", " << segment_end.y << ")"
                   << " distance: " << d << " mode: InfiniteLine" << std::endl;
-        d = calc_point_to_segment_distance(point, segment_start, segment_end, ProjectionMode::ClampToSegment);
+        d = calc_segment_point_distance(segment_start, segment_end, point, ProjectionMode::ClampToSegment);
         std::cout << "point(" << point.x << ", " << point.y << ") to segment_start(" << segment_start.x << ", " << segment_start.y << ") and segment_end(" << segment_end.x << ", " << segment_end.y << ")"
                   << " distance: " << d << " mode: ClampToSegment" << std::endl;
         // point(0, 2) to segment_start(1, 0) and segment_end(2, 0) distance: 2 mode: InfiniteLine
         // point(0, 2) to segment_start(1, 0) and segment_end(2, 0) distance: 2.23607 mode: ClampToSegment
 
-        std::cout << "===================== test_calc_point_to_segment_distance =====================" << std::endl
+        std::cout << "===================== test_calc_segment_point_distance =====================" << std::endl
                   << std::endl;
     }
 
     /**
-     * @brief 这个函数计算的是由三个二维点 a、b、c 构成的两个向量 AB 和 AC 的二维叉乘（Cross Product）结果（即叉积在Z轴方向的标量值）。
-     * @param a 第一个点
-     * @param b 第二个点
-     * @param c 第三个点
+     * @brief 计算二维叉乘（Cross Product）在 Z 轴方向的标量值，等价于向量 (segment_end - segment_start) x (point - segment_start)
+     *        结果 > 0 表示 point 在有向线段（segment_start -> segment_end）的左侧，< 0 表示在右侧，= 0 表示三点共线
+     * @param segment_start 有向线段的起点
+     * @param segment_end 有向线段的终点
+     * @param point 参与叉乘的点
      * @return 返回叉积在Z轴方向的标量值（double类型）
      */
-    double cross(const cv::Point2d &a, const cv::Point2d &b, const cv::Point2d &c)
+    double cross(
+        const cv::Point2d &segment_start,
+        const cv::Point2d &segment_end,
+        const cv::Point2d &point)
     {
-        // 向量 AB x AC
-        return (b.x - a.x) * (c.y - a.y) -
-               (b.y - a.y) * (c.x - a.x);
+        // 向量 (segment_end - segment_start) x (point - segment_start)
+        return (segment_end.x - segment_start.x) * (point.y - segment_start.y) -
+               (segment_end.y - segment_start.y) * (point.x - segment_start.x);
     }
 
     /**
-     * @brief 判断点 p 是否严格位于由点 ab 上
-     * @param a 线段的起点
-     * @param b 线段的终点
-     * @param p 要判断的点
-     * @return 返回点 p 是否在线段 ab 上（bool类型）
+     * @brief 判断点 point 是否位于线段（segment_start -> segment_end）上（含端点，容差 eps）
+     * @param segment_start 线段的起点
+     * @param segment_end 线段的终点
+     * @param point 要判断的点
+     * @return 返回点 point 是否在线段上（bool类型）
      */
-    bool on_segment(const cv::Point2d &a, const cv::Point2d &b, const cv::Point2d &p)
+    bool on_segment(
+        const cv::Point2d &segment_start,
+        const cv::Point2d &segment_end,
+        const cv::Point2d &point)
     {
-        return std::abs(cross(a, b, p)) < eps &&
-               p.x >= std::min(a.x, b.x) - eps &&
-               p.x <= std::max(a.x, b.x) + eps &&
-               p.y >= std::min(a.y, b.y) - eps &&
-               p.y <= std::max(a.y, b.y) + eps;
+        return std::abs(cross(segment_start, segment_end, point)) < eps &&
+               point.x >= std::min(segment_start.x, segment_end.x) - eps &&
+               point.x <= std::max(segment_start.x, segment_end.x) + eps &&
+               point.y >= std::min(segment_start.y, segment_end.y) - eps &&
+               point.y <= std::max(segment_start.y, segment_end.y) + eps;
     }
 
     /**
      * @brief 判断两条线段是否相交
      *        核心思想是：如果两条线段相交，那么其中一条线段的两个端点，必然分布在另一条线段所在直线的两侧。
-     * @param p1 线段1的起点
-     * @param p2 线段1的终点
-     * @param q1 线段2的起点
-     * @param q2 线段2的终点
+     * @param segment1_start 线段1的起点
+     * @param segment1_end 线段1的终点
+     * @param segment2_start 线段2的起点
+     * @param segment2_end 线段2的终点
      * @return 返回两条线段是否相交（bool类型）
      */
     bool segments_intersect(
-        const cv::Point2d &p1,
-        const cv::Point2d &p2,
-        const cv::Point2d &q1,
-        const cv::Point2d &q2)
+        const cv::Point2d &segment1_start,
+        const cv::Point2d &segment1_end,
+        const cv::Point2d &segment2_start,
+        const cv::Point2d &segment2_end)
     {
         // 这里利用了 cross 函数的“方向判断”特性：
-        //   c1 和 c2 代表了点 q1 和 q2 分别位于有向直线 p1p2 的哪一侧（左侧为正，右侧为负）。
-        //   c3 和 c4 代表了点 p1 和 p2 分别位于有向直线 q1q2 的哪一侧。
-        const double c1 = cross(p1, p2, q1);
-        const double c2 = cross(p1, p2, q2);
-        const double c3 = cross(q1, q2, p1);
-        const double c4 = cross(q1, q2, p2);
+        //   c1 和 c2 代表了点 segment2_start 和 segment2_end 分别位于有向直线 segment1 的哪一侧（左侧为正，右侧为负）。
+        //   c3 和 c4 代表了点 segment1_start 和 segment1_end 分别位于有向直线 segment2 的哪一侧。
+        const double c1 = cross(segment1_start, segment1_end, segment2_start);
+        const double c2 = cross(segment1_start, segment1_end, segment2_end);
+        const double c3 = cross(segment2_start, segment2_end, segment1_start);
+        const double c4 = cross(segment2_start, segment2_end, segment1_end);
 
         // 一般相交
         // 这是跨立实验的标准形态。
-        // 如果 q1 和 q2 在直线 p1p2 的两侧，那么 c1 和 c2 必定符号相反（一正一负）。
+        // 如果 segment2_start 和 segment2_end 在直线 segment1 的两侧，那么 c1 和 c2 必定符号相反（一正一负）。
         // 因此它们的乘积必定 < 0
-        // 同理，必须同时也满足 p1 和 p2 在直线 q1q2 的两侧。
+        // 同理，必须同时也满足 segment1_start 和 segment1_end 在直线 segment2 的两侧。
         if ((c1 * c2 < -eps) && (c3 * c4 < -eps))
         {
             return true;
@@ -213,13 +220,13 @@ namespace detect_utils
 
         // 边界条件判定 (非规范相交)
         // 共线或端点接触
-        if (std::abs(c1) < eps && on_segment(p1, p2, q1))
+        if (std::abs(c1) < eps && on_segment(segment1_start, segment1_end, segment2_start))
             return true;
-        if (std::abs(c2) < eps && on_segment(p1, p2, q2))
+        if (std::abs(c2) < eps && on_segment(segment1_start, segment1_end, segment2_end))
             return true;
-        if (std::abs(c3) < eps && on_segment(q1, q2, p1))
+        if (std::abs(c3) < eps && on_segment(segment2_start, segment2_end, segment1_start))
             return true;
-        if (std::abs(c4) < eps && on_segment(q1, q2, p2))
+        if (std::abs(c4) < eps && on_segment(segment2_start, segment2_end, segment1_end))
             return true;
 
         return false;
@@ -419,21 +426,21 @@ namespace detect_utils
     }
 
     /**
-     * @brief 计算目标点绕原点旋转后的新坐标
-     * @param origin_point 旋转中心
-     * @param target_point 旋转前的目标点
+     * @brief 计算点 point 绕旋转中心 rotation_center 旋转后的新坐标
+     * @param rotation_center 旋转中心
+     * @param point 旋转前的点
      * @param rotation_angle 旋转角度（度）；正角度在 OpenCV 坐标系中顺时针旋转，在 Math 坐标系中逆时针旋转
      * @param coord_system 坐标系类型（OpenCV或Math）
-     * @return 返回旋转后的目标点坐标
+     * @return 返回旋转后的点坐标
      */
     cv::Point2d calc_rotated_point(
-        const cv::Point2d &origin_point,
-        const cv::Point2d &target_point,
+        const cv::Point2d &rotation_center,
+        const cv::Point2d &point,
         const double rotation_angle,
         const CoordSystem coord_system)
     {
-        const double dx = target_point.x - origin_point.x;
-        const double dy = target_point.y - origin_point.y;
+        const double dx = point.x - rotation_center.x;
+        const double dy = point.y - rotation_center.y;
 
         // OpenCV 的 y 轴向下，因此相同的正角度在画面上表现为顺时针旋转。
         // Math 模式沿用 calc_segment_angle 的约定，将角度取反后再在图像坐标中计算。
@@ -458,8 +465,8 @@ namespace detect_utils
         }
 
         return {
-            origin_point.x + rotated_dx,
-            origin_point.y + rotated_dy};
+            rotation_center.x + rotated_dx,
+            rotation_center.y + rotated_dy};
     }
 
     void test_calc_rotated_point()

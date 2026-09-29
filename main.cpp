@@ -618,7 +618,7 @@ int main(int argc, char *argv[])
     else if (mode == "cv_math")
     {
         detect_utils::test_calc_point_distance();
-        detect_utils::test_calc_point_to_segment_distance();
+        detect_utils::test_calc_segment_point_distance();
         detect_utils::test_segments_intersect();
         detect_utils::test_calc_segment_angle();
         detect_utils::test_calc_rotated_point();
